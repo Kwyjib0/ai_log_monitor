@@ -2,5 +2,5 @@ streamlit
 pandas
 scikit-learn
 random
-datatime
+datetime
 
