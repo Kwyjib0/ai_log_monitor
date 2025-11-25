@@ -53,7 +53,7 @@ def detect_anomalies(df):
     df['anomaly'] = model.predict(features)
 
     # map numeric predictions to string labels
-    df['anomaly'] = df['anomaly'].map({1: 'noraml', -1: 'anomaly'})
+    df['anomaly'] = df['anomaly'].map({1: 'normal', -1: 'anomaly'})
 
     return df
 
@@ -69,7 +69,7 @@ def generate_html_report(df, anomalies):
     anomaly_rate = (num_anomalies / total) * 100
 
     html = f"""
-    <DOCTYPE html>
+    <!DOCTYPE html>
     <html>
     <head>
         <title>Log Anomaly Report</title>
@@ -99,7 +99,7 @@ def generate_html_report(df, anomalies):
             }}
             th, td {{
                 border: 1px solid #ddd;
-                padding: 12px:
+                padding: 12px;
                 text-align: left;
             }}
             th {{
@@ -122,7 +122,7 @@ def generate_html_report(df, anomalies):
             <p><strong>Total logs:</strong> {total}</p>
             <p><strong>Normal logs:</strong> {total - num_anomalies}</p>
             <p><strong>Anomalies detected:</strong><span class="anomaly">{num_anomalies}</span></p>
-            <p><strong>Anomaly rate:</strong> {anomaly_rate: 1f}%</p>
+            <p><strong>Anomaly rate:</strong> {anomaly_rate:.1f}%</p>
         </div>
 
         <div class="metric">
@@ -164,9 +164,9 @@ if df is not None:
 
         # calculate statistics
         total = len(result_df) # total number of logs
-        anomalies = result_df[result_df['anomaly'] == 'Anomaly'] # filter anomalies
+        anomalies = result_df[result_df['anomaly'] == 'anomaly'] # filter anomalies
         num_anomalies = len(anomalies) # count anomalies
-        anomaly_rate = (num_anomalies / toatl) * 100 # calculate anomaly rate
+        anomaly_rate = (num_anomalies / total) * 100 # calculate anomaly rate
 
         # display metrics
         st.subheader("Summary Statistics")
@@ -181,7 +181,7 @@ if df is not None:
         if filter_option == "Anomalies":
             display_df = anomalies # show only anomalies
         elif filter_option == "Normal":
-            display_df = result_df[result_df['anomaly'] == 'Normal'] # show only normal logs
+            display_df = result_df[result_df['anomaly'] == 'normal'] # show only normal logs
         else:
             display_df = result_df # show all logs
         
