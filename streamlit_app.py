@@ -137,6 +137,11 @@ def generate_html_report(df, anomalies):
 # Streamlit app layout
 
 st.title("AI-Enhanced Log Monitoring Dashboard")
+
+# initialize session state to persist data
+if 'df' not in st.session_state:
+    st.session_state.df = None
+
 # radio button for user choice
 option = st.radio("Choose an option:", ["Generate Sample Logs", "Upload CSV Log File"])
 # initialize empty dataframe
@@ -145,23 +150,42 @@ df = None
 # if log generation option is selected
 if option == "Generate Sample Logs":
     if st.button("Generate Logs"): # button to generate logs
+        st.session_state.df = generate_logs() # call log generation function
+        st.success("Sample logs generated!") # success message
+        st.write(st.session_state.df.head()) # display first 5 rows of generated logs
+        '''
         df = generate_logs() # call log generation function
         st.success("Sample logs generated!") # success message
         st.write(df.head()) # display first 5 rows of generated logs
+        '''
+    elif st.session_state.df is not None:
+        st.write("Previously Generated Logs:")
+        st.write(st.session_state.df.head()) # display previously generated logs
+        
 # if upload option is selected
 elif option == "Upload CSV Log File":
     # file uploader widget
     uploaded_file = st.file_uploader("Upload your CSV log file", type=["csv"])
     if uploaded_file is not None: # check if file was uploaded
+        st.session_state.df = pd.read_csv(uploaded_file) # read uploaded CSV file into dataframe
+        st.success("File uploaded successfully!") # success message
+        st.write(st.session_state.df.head()) # display first 5 rows of uploaded logs
+        '''
         df = pd.read_csv(uploaded_file) # read uploaded CSV file into dataframe
         st.success("File uploaded successfully!") # success message
         st.write(df.head()) # display first 5 rows of uploaded logs
+        '''
 
 # if dataframe is not empty
+if st.session_state.df is not None:
+    if st.button("Run Anomaly Detection"): # button to run anomaly detection
+        result_df = detect_anomalies(st.session_state.df.copy()) # call anomaly detection function
+
+'''
 if df is not None:
     if st.button("Run Anomaly Detection"): # button to run anomaly detection
         result_df = detect_anomalies(df) # call anomaly detection function
-
+'''
         # calculate statistics
         total = len(result_df) # total number of logs
         anomalies = result_df[result_df['anomaly'] == 'anomaly'] # filter anomalies
@@ -178,6 +202,9 @@ if df is not None:
 
         # interactive log filters
         filter_option = st.selectbox("Filter logs:", ["All", "Anomalies", "Normal"]) # dropdown for log filtering
+        '''
+        filter_option = st.selectbox("Filter logs:", ["All", "Anomalies", "Normal"]) # dropdown for log filtering
+        '''
         if filter_option == "Anomalies":
             display_df = anomalies # show only anomalies
         elif filter_option == "Normal":
