@@ -190,7 +190,7 @@ if df is not None:
 
         # status code summary
         st.subheader("Status Code Summary")
-        status_summary = result_df.['status_code'].value_counts() # count occurrences of each status code
+        status_summary = result_df['status_code'].value_counts() # count occurrences of each status code
         st.bar_chart(status_summary) # display bar chart of status codes
 
         # download buttons for CSV and HTML report
