@@ -127,7 +127,7 @@ def generate_html_report(df, anomalies):
 
         <div class="metric">
             <h2>All Logs</h2>
-            {df.to html(index=False)}
+            {df.to_html(index=False)}
         </div>
     </body>
     </html>
