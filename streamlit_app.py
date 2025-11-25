@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas pd
+import pandas as pd
 import random
 from datetime import datetime, timedelta
 from sklearn.ensemble import IsolationForest
