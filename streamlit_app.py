@@ -177,15 +177,15 @@ elif option == "Upload CSV Log File":
         '''
 
 # if dataframe is not empty
-if st.session_state.df is not None:
-    if st.button("Run Anomaly Detection"): # button to run anomaly detection
-        result_df = detect_anomalies(st.session_state.df.copy()) # call anomaly detection function
-
 '''
 if df is not None:
     if st.button("Run Anomaly Detection"): # button to run anomaly detection
         result_df = detect_anomalies(df) # call anomaly detection function
 '''
+if st.session_state.df is not None:
+    if st.button("Run Anomaly Detection"): # button to run anomaly detection
+        result_df = detect_anomalies(st.session_state.df.copy()) # call anomaly detection function
+
         # calculate statistics
         total = len(result_df) # total number of logs
         anomalies = result_df[result_df['anomaly'] == 'anomaly'] # filter anomalies
