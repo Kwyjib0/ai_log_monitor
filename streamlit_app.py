@@ -144,7 +144,7 @@ df = None
 
 # if log generation option is selected
 if option == "Generate Sample Logs":
-    if st.button("Gnerat Logs"): # button to generate logs
+    if st.button("Generate Logs"): # button to generate logs
         df = generate_logs() # call log generation function
         st.success("Sample logs generated!") # success message
         st.write(df.head()) # display first 5 rows of generated logs
