@@ -103,7 +103,7 @@ def generate_html_report(df, anomalies):
                 text-align: left;
             }}
             th {{
-                background-color: #f9f9f9;
+                background-color: #fcaf50;
                 color: white;
             }}
             tr:nth-child(even) {{
@@ -121,14 +121,20 @@ def generate_html_report(df, anomalies):
             <h2>Summary Statistics</h2>
             <p><strong>Total logs:</strong> {total}</p>
             <p><strong>Normal logs:</strong> {total - num_anomalies}</p>
-            <p><strong>Anomalies detected:</strong><span class="anomaly">{num_anomalies}</span></p>
+            <p><strong>Anomalies detected:</strong> <span class="anomaly">{num_anomalies}</span></p>
             <p><strong>Anomaly rate:</strong> {anomaly_rate:.1f}%</p>
         </div>
 
         <div class="metric">
-            <h2>All Logs</h2>
-            {df.to_html(index=False)}
+            <h2>Anomalies Detected</h2>
+            {anomalies.to_html(index=False, escape=False)}
         </div>
+        
+        <div class="metric">
+            <h2>All Logs</h2>
+            {df.to_html(index=False, escape=False)}
+        </div>
+        
     </body>
     </html>
     """
@@ -141,7 +147,10 @@ st.title("AI-Enhanced Log Monitoring Dashboard")
 # initialize session state to persist data
 if 'df' not in st.session_state:
     st.session_state.df = None
-
+if 'result_df' not in st.session_state:
+    st.session_state.result_df = None
+if 'anomalies' not in st.session_state:
+    st.session_state.anomalies = None
 # radio button for user choice
 option = st.radio("Choose an option:", ["Generate Sample Logs", "Upload CSV Log File"])
 # initialize empty dataframe
@@ -183,13 +192,15 @@ if df is not None:
         result_df = detect_anomalies(df) # call anomaly detection function
 '''
 if st.session_state.df is not None:
-    if st.button("Run Anomaly Detection"): # button to run anomaly detection
-        result_df = detect_anomalies(st.session_state.df.copy()) # call anomaly detection function
+    if st.button("Run Anomaly Detection"): # button to run anomaly detection        
+        # result_df = detect_anomalies(st.session_state.df.copy()) # call anomaly detection function
+        st.session_state.result_df = detect_anomalies(st.session_state.df.copy()) # call anomaly detection function
+        st.session_state.anomalies = st.session_state.result_df[st.session_state.result_df['anomaly'] == 'anomaly'] # filter anomalies
 
         # calculate statistics
         total = len(result_df) # total number of logs
         anomalies = result_df[result_df['anomaly'] == 'anomaly'] # filter anomalies
-        num_anomalies = len(anomalies) # count anomalies
+        # num_anomalies = len(anomalies) # count anomalies
         anomaly_rate = (num_anomalies / total) * 100 # calculate anomaly rate
 
         # display metrics
