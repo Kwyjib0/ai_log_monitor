@@ -43,29 +43,39 @@ def detect_anomalies(df):
     # create a copy of the dataframe to avoid modifying original
     df_features = df.copy()
 
+    # ensure timestamp is datetime
+    if not pd.api.types.is_datetime64_any_dtype(df_features["timestamp"]):
+        df_features["timestamp"] = pd.to_datetime(
+            df_features["timestamp"],
+            errors="coerce",
+        )
+
+    # drop rows with invalid timestamps
+    df_features = df_features.dropna(subset=['timestamp'])
+    
     # extract time features for anomaly detection
-    df_features['hour'] = pd.to_datetime(df_features['timestamp']).dt.hour
-    df_features['day_of_week'] = pd.to_datetime(df_features['timestamp']).dt.dayofweek
-    df_features['minute_of_day'] = pd.to_datetime(df_features['timestamp']).dt.hour * 60 + pd.to_datetime(df_features['timestamp']).dt.minute
+    df_features['hour'] = df_features['timestamp'].dt.hour
+    df_features['day_of_week'] = df_features['timestamp'].dt.dayofweek
+    df_features['minute_of_day'] = df_features['timestamp'].dt.hour * 60 + df_features['timestamp'].dt.minute
 
     # calculate user-based features
-    user_stats = df_features.groupby('user')({
-        'response_time': ['mean', 'std', 'count'],
-        'status_code': 'mean'
-    }).reset_index()
+    user_stats = df_features.groupby('user')['response_time'].agg(['mean', 'std', 'count'])
+    user_status = df_features.groupby('user')['status_code'].mean()
+    user_stats = user_stats.join(user_status)
+    user_stats = user_stats.reset_index()
     user_stats.columns = ['user', 'user_avg_response', 'user_std_response', 'user_request_count', 'user_avg_status'] 
 
     # merge user stats back into main dataframe
     df_features = df_features.merge(user_stats, on='user', how='left')
 
     # calculate deviation from user average response time
-    df_features['response_deviation'] = abs(df_features['response_time'] - df_features['user_avg_response'])
+    df_features['response_deviation'] = abs(df_features['response_time'] - df_features['user_avg_response']).abs()
 
     # fill NaN values in std (for users with single request) with 0
     df_features['user_std_response'] = df_features['user_std_response'].fillna(0)
 
-    # select features for anomaly detection
-    features = df_features[[
+
+    feature_cols = [
         'response_time',        # raw response time
         'status_code',          # HTTP status code
         'hour',                 # hour of the day
@@ -74,11 +84,13 @@ def detect_anomalies(df):
         'user_avg_response',    # average response time for user
         'response_deviation',   # deviation from user average
         'user_avg_status',      # average status code for user
-    ]]
+    ]
+
+    features = df_features[feature_cols]
 
     # Calculate expected contamination based on error status codes
-    estimated_anomalies = len(df[df['status_code'] >= 500])
-    estimated_contamination = max(0.01, min(0.5, estimated_anomalies / len(df)))
+    estimated_anomalies = len(df_features[df_features['status_code'] >= 500])
+    estimated_contamination = max(0.01, min(0.5, estimated_anomalies / len(df_features)))
 
     # initialize Isolation Forest model with contamination set to 10%
     model = IsolationForest(contamination=estimated_contamination, random_state=42)
@@ -89,10 +101,13 @@ def detect_anomalies(df):
     # predict anomalies (-1 for anomaly, 1 for normal)
     df['anomaly'] = model.predict(features)
 
-    # map numeric predictions to string labels
-    df['anomaly'] = df['anomaly'].map({1: 'normal', -1: 'anomaly'})
 
-    return df
+    df_anomaly = model.predict(features)
+    df_features['anomaly'] = df_anomaly
+    # map numeric predictions to string labels
+    df_features['anomaly'] = df['anomaly'].map({1: 'normal', -1: 'anomaly'})
+
+    return df_features
 
 #################################################################################################
 
