@@ -197,55 +197,58 @@ if st.session_state.df is not None:
         st.session_state.result_df = detect_anomalies(st.session_state.df.copy()) # call anomaly detection function
         st.session_state.anomalies = st.session_state.result_df[st.session_state.result_df['anomaly'] == 'anomaly'] # filter anomalies
 
-        # calculate statistics
-        total = len(result_df) # total number of logs
-        anomalies = result_df[result_df['anomaly'] == 'anomaly'] # filter anomalies
-        # num_anomalies = len(anomalies) # count anomalies
-        anomaly_rate = (num_anomalies / total) * 100 # calculate anomaly rate
+if st.session_state.result_df is not None:
+    result_df = st.session_state.result_df
+    anomalies = st.session_state.anomalies
+    # calculate statistics
+    total = len(result_df) # total number of logs
+    # anomalies = result_df[result_df['anomaly'] == 'anomaly'] # filter anomalies
+    num_anomalies = len(anomalies) # count anomalies
+    anomaly_rate = (num_anomalies / total) * 100 # calculate anomaly rate
 
-        # display metrics
-        st.subheader("Summary Statistics")
-        col1, col2, col3, col4 = st.columns(4) # create 4 columns for metrics
-        col1.metric("Total Logs", total) # display total logs
-        col2.metric("Normal Logs", total - num_anomalies) # display normal log count
-        col3.metric("Anomalies Detected", num_anomalies) # display anomaly count
-        col4.metric("Anomaly Rate", f"{anomaly_rate:.1f}%") # display anomaly rate
+    # display metrics
+    st.subheader("Summary Statistics")
+    col1, col2, col3, col4 = st.columns(4) # create 4 columns for metrics
+    col1.metric("Total Logs", total) # display total logs
+    col2.metric("Normal Logs", total - num_anomalies) # display normal log count
+    col3.metric("Anomalies Detected", num_anomalies) # display anomaly count
+    col4.metric("Anomaly Rate", f"{anomaly_rate:.1f}%") # display anomaly rate
 
-        # interactive log filters
-        filter_option = st.selectbox("Filter logs:", ["All", "Anomalies", "Normal"]) # dropdown for log filtering
-        '''
-        filter_option = st.selectbox("Filter logs:", ["All", "Anomalies", "Normal"]) # dropdown for log filtering
-        '''
-        if filter_option == "Anomalies":
-            display_df = anomalies # show only anomalies
-        elif filter_option == "Normal":
-            display_df = result_df[result_df['anomaly'] == 'normal'] # show only normal logs
-        else:
-            display_df = result_df # show all logs
-        
-        st.write("Filtered Logs:")
-        st.dataframe(display_df) # display filtered logs
+    # interactive log filters
+    filter_option = st.selectbox("Filter logs:", ["All", "Anomalies", "Normal"]) # dropdown for log filtering
+    '''
+    filter_option = st.selectbox("Filter logs:", ["All", "Anomalies", "Normal"]) # dropdown for log filtering
+    '''
+    if filter_option == "Anomalies":
+        display_df = anomalies # show only anomalies
+    elif filter_option == "Normal":
+        display_df = result_df[result_df['anomaly'] == 'normal'] # show only normal logs
+    else:
+        display_df = result_df # show all logs
+    
+    st.write("Filtered Logs:")
+    st.dataframe(display_df) # display filtered logs
 
-        # status code summary
-        st.subheader("Status Code Summary")
-        status_summary = result_df['status_code'].value_counts() # count occurrences of each status code
-        st.bar_chart(status_summary) # display bar chart of status codes
+    # status code summary
+    st.subheader("Status Code Summary")
+    status_summary = result_df['status_code'].value_counts() # count occurrences of each status code
+    st.bar_chart(status_summary) # display bar chart of status codes
 
-        # download buttons for CSV and HTML report
-        st.subheader("Download Reports")
-        csv_buffer = StringIO() # create in-memory buffer for CSV
-        result_df.to_csv(csv_buffer, index=False) # write dataframe to CSV buffer
-        #CSV download button
-        st.download_button(
-            label = "Download CSV",
-            data = csv_buffer.getvalue(),
-            file_name = "logs_with_anomalies.csv",
-            mime = "text/csv"
-        )
+    # download buttons for CSV and HTML report
+    st.subheader("Download Reports")
+    csv_buffer = StringIO() # create in-memory buffer for CSV
+    result_df.to_csv(csv_buffer, index=False) # write dataframe to CSV buffer
+    #CSV download button
+    st.download_button(
+        label = "Download CSV",
+        data = csv_buffer.getvalue(),
+        file_name = "logs_with_anomalies.csv",
+        mime = "text/csv"
+    )
 
-        html_report = generate_html_report(result_df, anomalies) # generate HTML report
-        st.download_button("Download HTML Report", html_report, "dashboard.html", "text/html") # HTML download button
+    html_report = generate_html_report(result_df, anomalies) # generate HTML report
+    st.download_button("Download HTML Report", html_report, "dashboard.html", "text/html") # HTML download button
 
-        # Expandable section to view logs
-        with st.expander("View All Logs"): # collapsible section
-            st.dataframe(result_df) # display all logs
+    # Expandable section to view logs
+    with st.expander("View All Logs"): # collapsible section
+        st.dataframe(result_df) # display all logs
