@@ -321,8 +321,35 @@ if st.session_state.result_df is not None:  # check if results exist
     else:  # if user selected all filter
         display_df = result_df  # set display dataframe to all logs
     
+    # prepare display copy and remove internal time feature columns
+    display_df_display = display_df.drop(columns=['hour', 'day_of_week', 'minute_of_day'], errors='ignore')
+
+    # Restore/display friendly timestamps:
+    # - If `timestamp` exists and some values are missing (NaT), prefer the original uploaded
+    #   `timestamp` values (often strings) from `st.session_state.df` so the user sees their raw
+    #   input instead of faint "None"/NaT entries. Then format any datetime objects to ISO strings
+    #   for consistent display and replace any remaining nulls with empty strings.
+    if 'timestamp' in display_df_display.columns and st.session_state.df is not None and 'timestamp' in st.session_state.df.columns:
+        try:
+            original_ts = st.session_state.df['timestamp']
+            # Align and fill NaT in the processed results with the original uploaded values
+            display_df_display['timestamp'] = display_df_display['timestamp'].where(
+                display_df_display['timestamp'].notna(), original_ts
+            )
+        except Exception:
+            # If anything goes wrong (index mismatch or missing column), ignore and continue
+            pass
+
+    # Convert any datetime values to strings for a clean display
+    if 'timestamp' in display_df_display.columns:
+        display_df_display['timestamp'] = display_df_display['timestamp'].apply(
+            lambda x: x.isoformat() if isinstance(x, pd.Timestamp) else x
+        )
+        # Replace any remaining null-like values with an empty string so Streamlit doesn't render faint 'None'
+        display_df_display['timestamp'] = display_df_display['timestamp'].fillna('')
+
     st.write("Filtered Logs:")  # display label
-    st.dataframe(display_df)  # display filtered logs table
+    st.dataframe(display_df_display)  # display filtered logs table (without internal time features)
 
     # status code summary
     st.subheader("Status Code Summary")  # display subheading
