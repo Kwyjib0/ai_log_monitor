@@ -249,6 +249,6 @@ if st.session_state.result_df is not None:
     html_report = generate_html_report(result_df, anomalies) # generate HTML report
     st.download_button("Download HTML Report", html_report, "dashboard.html", "text/html") # HTML download button
 
-    # Expandable section to view logs
-    with st.expander("View All Logs"): # collapsible section
-        st.dataframe(result_df) # display all logs
+    ## Expandable section to view logs
+    #with st.expander("View All Logs"): # collapsible section
+    #    st.dataframe(result_df) # display all logs
