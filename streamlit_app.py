@@ -44,7 +44,7 @@ def detect_anomalies(df):
     features = df[['response_time', 'status_code']]
 
     # initialize Isolation Forest model with contamination set to 10%
-    model = IsolationForest(contamination=0.1, random_state=42)
+    model = IsolationForest(contamination='auto', random_state=42)
 
     # train model on features
     model.fit(features)
