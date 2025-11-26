@@ -40,11 +40,48 @@ def generate_logs():
 
 # detect anomalies
 def detect_anomalies(df):
-    # select columns for anomaly detection
-    features = df[['response_time', 'status_code']]
+    # create a copy of the dataframe to avoid modifying original
+    df_features = df.copy()
+
+    # extract time features for anomaly detection
+    df_features['hour'] = pd.to_datetime(df_features['timestamp']).dt.hour
+    df_features['day_of_week'] = pd.to_datetime(df_features['timestamp']).dt.dayofweek
+    df_features['minute_of_day'] = pd.to_datetime(df_features['timestamp']).dt.hour * 60 + pd.to_datetime(df_features['timestamp']).dt.minute
+
+    # calculate user-based features
+    user_stats = df_features.groupby('user')({
+        'response_time': ['mean', 'std', 'count'],
+        'status_code': 'mean'
+    }).reset_index()
+    user_stats.columns = ['user', 'user_avg_response', 'user_std_response', 'user_request_count', 'user_avg_status'] 
+
+    # merge user stats back into main dataframe
+    df_features = df_features.merge(user_stats, on='user', how='left')
+
+    # calculate deviation from user average response time
+    df_features['response_deviation'] = abs(df_features['response_time'] - df_features['user_avg_response'])
+
+    # fill NaN values in std (for users with single request) with 0
+    df_features['user_std_response'] = df_features['user_std_response'].fillna(0)
+
+    # select features for anomaly detection
+    features = df_features[[
+        'response_time',        # raw response time
+        'status_code',          # HTTP status code
+        'hour',                 # hour of the day
+        'minute_of_day',        # minute of the day
+        'user_request_count',   # number of requests by user
+        'user_avg_response',    # average response time for user
+        'response_deviation',   # deviation from user average
+        'user_avg_status',      # average status code for user
+    ]]
+
+    # Calculate expected contamination based on error status codes
+    estimated_anomalies = len(df[df['status_code'] >= 500])
+    estimated_contamination = max(0.01, min(0.5, estimated_anomalies / len(df)))
 
     # initialize Isolation Forest model with contamination set to 10%
-    model = IsolationForest(contamination='auto', random_state=42)
+    model = IsolationForest(contamination=estimated_contamination, random_state=42)
 
     # train model on features
     model.fit(features)
@@ -249,6 +286,6 @@ if st.session_state.result_df is not None:
     html_report = generate_html_report(result_df, anomalies) # generate HTML report
     st.download_button("Download HTML Report", html_report, "dashboard.html", "text/html") # HTML download button
 
-    ## Expandable section to view logs
-    #with st.expander("View All Logs"): # collapsible section
-    #    st.dataframe(result_df) # display all logs
+    # # Expandable section to view logs
+    # with st.expander("View All Logs"): # collapsible section
+    #     st.dataframe(result_df) # display all logs
