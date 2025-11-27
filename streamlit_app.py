@@ -4,6 +4,7 @@ import random  # Import random module for generating random values
 from datetime import datetime, timedelta  # Import datetime utilities for timestamp manipulation
 from sklearn.ensemble import IsolationForest  # Import Isolation Forest algorithm for anomaly detection
 import os  # Import os module for file system operations
+import uuid  # Import uuid for generating uploader rotation keys
 from io import StringIO  # Import StringIO for in-memory string buffer operations
 
 # generate sample log data
@@ -151,7 +152,84 @@ def detect_anomalies(df):
     # map numeric predictions to string labels
     df_features['anomaly'] = pd.Series(predictions, index=df_features.index).map({1: 'normal', -1: 'anomaly'})  # convert numeric predictions to 'normal' or 'anomaly' labels
 
-    return df_features  # return dataframe with anomaly labels
+    # Determine a short, human-readable "anomaly_type" for each row.
+    # We collect possible flags and then pick a single, prioritized label to show
+    # in the table and exported reports. Non-anomalous rows get an empty string.
+    def _determine_anomaly_type(row):
+        # Collect candidate tags
+        tags = []
+        try:
+            if row.get('status_code', 0) >= 500:
+                tags.append('server_error')
+        except Exception:
+            pass
+        try:
+            if int(row.get('slow_response', 0)) == 1:
+                tags.append('slow_response')
+        except Exception:
+            pass
+        try:
+            if abs(row.get('response_zscore', 0)) > 3 or abs(row.get('global_response_zscore', 0)) > 3:
+                tags.append('high_response_zscore')
+        except Exception:
+            pass
+        try:
+            if int(row.get('is_error', 0)) == 1 and float(row.get('user_error_deviation', 0)) > 0.5:
+                tags.append('high_error_rate')
+        except Exception:
+            pass
+        try:
+            if bool(row.get('hour_activity_anomaly', False)):
+                tags.append('hour_spike')
+        except Exception:
+            pass
+        try:
+            if float(row.get('request_freq_zscore', 0)) > 2:
+                tags.append('high_request_freq')
+        except Exception:
+            pass
+        try:
+            if int(row.get('is_off_hours', 0)) == 1:
+                tags.append('off_hours')
+        except Exception:
+            pass
+
+        if not tags:
+            return '' if row.get('anomaly', 'normal') == 'normal' else 'other'
+
+        # Priority order for a single displayed type
+        priority = [
+            'server_error',
+            'slow_response',
+            'high_response_zscore',
+            'high_error_rate',
+            'hour_spike',
+            'high_request_freq',
+            'off_hours',
+            'other'
+        ]
+        for t in priority:
+            if t in tags:
+                chosen = t
+                break
+
+        # Map a short, user-friendly description
+        descriptions = {
+            'server_error': 'Server error (5xx)',
+            'slow_response': 'Slow response time',
+            'high_response_zscore': 'Abnormally high response time',
+            'high_error_rate': 'Elevated error rate for user',
+            'hour_spike': 'Sudden spike in requests this hour',
+            'high_request_freq': 'Unusually high request frequency',
+            'off_hours': 'Activity during off-hours',
+            'other': 'Other anomaly'
+        }
+        return descriptions.get(chosen, 'Other anomaly')
+
+    # Apply only once and store the short description for display/export.
+    df_features['anomaly_type'] = df_features.apply(_determine_anomaly_type, axis=1)
+
+    return df_features  # return dataframe with anomaly labels and types
 
 #################################################################################################
 
@@ -249,7 +327,26 @@ if 'uploaded_file_id' not in st.session_state:  # check if file ID is in session
 if 'detection_run' not in st.session_state:  # check if detection_run flag is in session state
     st.session_state.detection_run = False  # initialize detection_run flag as False
 
-option = st.radio("Choose an option:", ["Generate Sample Logs", "Upload CSV Log File"])  # create radio button for user to choose mode
+# session-backed option key so we can reset programmatically
+if 'app_mode' not in st.session_state:
+    st.session_state.app_mode = "Generate Sample Logs"
+
+# Global "Start Over" button: clears generated/uploaded data and returns
+# user to the initial options screen.
+if st.button("Start Over"):
+    for k in ['df', 'result_df', 'anomalies', 'uploaded_file_id', 'detection_run']:
+        if k in st.session_state:
+            st.session_state[k] = None
+    # rotate uploader key if present (from prior app variants)
+    if 'uploader_key' in st.session_state:
+        st.session_state.uploader_key = str(uuid.uuid4())
+    st.session_state.app_mode = "Generate Sample Logs"
+    try:
+        st.experimental_rerun()
+    except Exception:
+        st.rerun()
+
+option = st.radio("Choose an option:", ["Generate Sample Logs", "Upload CSV Log File"], key="app_mode")  # create radio button for user to choose mode
 
 # if log generation option is selected
 if option == "Generate Sample Logs":  # check if user selected generate mode
@@ -289,12 +386,14 @@ if st.session_state.df is not None:  # check if dataframe has data
                 st.session_state.anomalies = st.session_state.result_df[st.session_state.result_df['anomaly'] == 'anomaly']  # filter to get only anomalies
                 st.session_state.detection_run = True  # set flag to indicate detection has run
                 st.success("Anomaly detection complete!")  # display success message
-    with col_clear:  # second column for clear button
-        if st.button("Clear Results"):  # check if clear button was clicked
-            st.session_state.result_df = None  # clear result dataframe
-            st.session_state.anomalies = None  # clear anomalies dataframe
-            st.session_state.detection_run = False  # reset detection flag
-            st.rerun()  # rerun the app to refresh display
+    with col_clear:  # second column reserved for clear button
+        # Only show Clear Results after anomaly detection has run
+        if st.session_state.get('detection_run', False):
+            if st.button("Clear Results"):  # check if clear button was clicked
+                st.session_state.result_df = None  # clear result dataframe
+                st.session_state.anomalies = None  # clear anomalies dataframe
+                st.session_state.detection_run = False  # reset detection flag
+                st.rerun()  # rerun the app to refresh display
 
 if st.session_state.result_df is not None:  # check if results exist
     result_df = st.session_state.result_df  # store result dataframe in variable
